@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>test protobufjs</title>
+	<script type="text/javascript" src="bytebuffer.js"></script>
+	<script type="text/javascript" src="protobuf.js"></script>
+	<script type="text/javascript" src="flatbuffers.js"></script>
+	<script type="text/javascript" src="todo_generated.js"></script>
+	<script type="text/javascript">
+
+	var benchProtoBuf= function(nbLoop) {
+		var ProtoBuf = dcodeIO.ProtoBuf;
+		var ByteBuffer = dcodeIO.ByteBuffer;
+		var builder = ProtoBuf.loadProtoFile("todo_provider.proto");
+		var examples = builder.build("examples");
+
+		var dataset = [];
+		
+		for (var i = 0; i < nbLoop; i++) {
+			var todo = new examples.Todo({
+				title : i + " un premier test " + new Date()
+			});
+			var todos = new examples.TodoCollection({
+				todos : [ todo ]
+			});
+			var bb = todos.encode();
+
+			dataset.push(bb.toArrayBuffer());
+		}
+
+		for (var i = 0; i < nbLoop; i++) {
+			var bytes = dataset[i];
+			var todos = examples.TodoCollection.decode(bytes);
+		}
+
+		var start = new Date().getTime();
+		for (var i = 0; i < nbLoop; i++) {
+			var bytes = dataset[i];
+			var todos = examples.TodoCollection.decode(bytes);
+		}
+		var end = new Date().getTime();
+		var avg = (end - start) / nbLoop;
+
+		console.log("ProtoBuf    - Avg deserialize time " + avg + " ms");
+	}
+
+	var benchJson= function(nbLoop) {
+		
+		var dataset = [];
+
+		for (var i = 0; i < nbLoop; i++) {
+			var todo = '{ ' +
+				'"title" : "' + i + ' un premier test ' + new Date() +
+			'"}';
+			var todos = '{' +
+				'"todos" : [' + todo  + ']' +
+			'}';
+			
+			dataset.push(todos);
+		}
+
+		for (var i = 0; i < nbLoop; i++) {
+			var json = dataset[i];
+			var todos = JSON.parse(json);
+		}
+
+		var start = new Date().getTime();
+		for (var i = 0; i < nbLoop; i++) {
+			var json = dataset[i];
+			var todos = JSON.parse(json);;
+		}
+		var end = new Date().getTime();
+		var avg = (end - start) / nbLoop;
+
+		console.log("JSON        - Avg deserialize time " + avg + " ms");
+	}
+
+	var benchFlatBuf= function(nbLoop) {
+
+		var dataset = [];
+
+		for (var i = 0; i < nbLoop; i++) {
+
+			var builder = new flatbuffers.Builder(0);
+			var title = builder.createString(i + " un premier test " + new Date());
+			var Todo = com.alex.generated.Todo;
+			var TodoCollection = com.alex.generated.TodoCollection;
+
+			Todo.startTodo(builder);
+			Todo.addTitle(builder, title);
+			var todoOffset = Todo.endTodo(builder);
+
+			var todos = TodoCollection.createTodosVector(builder, [ todoOffset ]);
+
+			TodoCollection.startTodoCollection(builder);
+			TodoCollection.addTodos(builder, todos);
+			var offset = TodoCollection.endTodoCollection(builder);
+			builder.finish(offset);
+
+			var bytes =  builder.asUint8Array()
+
+			dataset.push(bytes);
+
+		}
+
+		var currentTitle = "";
+
+		for (var i = 0; i < nbLoop; i++) {
+			var bytes = dataset[i];
+			var buffer = new flatbuffers.ByteBuffer(bytes);
+			var todoCollection = TodoCollection.getRootAsTodoCollection(buffer, null);
+			currentTitle = todoCollection.todos(0).title();
+		}
+
+		var start = new Date().getTime();
+		for (var i = 0; i < nbLoop; i++) {
+			var bytes = dataset[i];
+			var buffer = new flatbuffers.ByteBuffer(bytes);
+			var todoCollection = TodoCollection.getRootAsTodoCollection(buffer, null);
+			currentTitle = todoCollection.todos(0).title();
+		}
+		
+		var end = new Date().getTime();
+		var avg = (end - start) / nbLoop;
+
+		console.log("FlatBuffers - Avg deserialize time " + avg + " ms");
+	}
+
+
+	var nbLoop = 10000;
+	var nbBench = 3;
+	for (var j = 0; j < nbBench; j++) {
+		benchProtoBuf(nbLoop);
+		benchJson(nbLoop);
+		benchFlatBuf(nbLoop);
+	}
+
+	</script>
+</head>
+<body>
+	<p>Bench with a message which is a wrapper around a string. CTRL+J to see the results in the logs</p>
+
+</body>
+</html>

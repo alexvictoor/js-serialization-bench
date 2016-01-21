@@ -1,0 +1,10 @@
+package examples;
+ 
+message Todo {
+	required string title = 1;
+}
+ 
+message TodoCollection {
+	repeated Todo todos = 1;
+	extensions 100 to 199;
+}

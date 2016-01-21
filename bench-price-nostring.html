@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>test protobufjs</title>
+	<script type="text/javascript" src="bytebuffer.js"></script>
+	<script type="text/javascript" src="protobuf.js"></script>
+	<script type="text/javascript" src="flatbuffers.js"></script>
+	<script type="text/javascript" src="tick-nostring_generated.js"></script>
+	<script type="text/javascript">
+
+	var benchProtoBuf= function(nbLoop) {
+		var ProtoBuf = dcodeIO.ProtoBuf;
+		var ByteBuffer = dcodeIO.ByteBuffer;
+		var builder = ProtoBuf.loadProtoFile("price_nostring_provider.proto");
+		var examples = builder.build("examples");
+
+		var dataset = [];
+
+		for (var i = 0; i < nbLoop; i++) {
+			var price = new examples.Price({
+				bid: new Date().getTime() / (1 +i),
+				ask : new Date().getTime() / (1 +i)
+			});
+			var tick = new examples.Tick({
+				price: price,
+				ric: i
+			});
+			var bb = tick.encode();
+
+			dataset.push(bb.toArrayBuffer());
+		}
+
+		for (var i = 0; i < nbLoop; i++) {
+			var bytes = dataset[i];
+			var tick = examples.Tick.decode(bytes);
+		}
+
+		var start = new Date().getTime();
+		for (var i = 0; i < nbLoop; i++) {
+			var bytes = dataset[i];
+			var tick = examples.Tick.decode(bytes);
+		}
+		var end = new Date().getTime();
+		var avg = (end - start) / nbLoop;
+
+		console.log("ProtoBuf    - Avg deserialize time " + avg + " ms");
+	}
+
+	var benchJson= function(nbLoop) {
+		
+		var dataset = [];
+
+		for (var i = 0; i < nbLoop; i++) {
+			var price = '{ ' +
+				'"bid" : ' + new Date().getTime() / (1 +i) + ',' +
+				'"ask" : ' + new Date().getTime() / (1 +i) +
+			'}';
+			var tick = '{' +
+				'"price" : ' + price  + 
+				', "ric" : ' + i + ' ' + 
+			'}';
+			
+			dataset.push(tick);
+		}
+
+		for (var i = 0; i < nbLoop; i++) {
+			var json = dataset[i];
+			var tick = JSON.parse(json);
+		}
+
+		var start = new Date().getTime();
+		for (var i = 0; i < nbLoop; i++) {
+			var json = dataset[i];
+			var tick = JSON.parse(json);;
+		}
+		var end = new Date().getTime();
+		var avg = (end - start) / nbLoop;
+
+		console.log("JSON        - Avg deserialize time " + avg + " ms");
+	}
+
+
+	var benchFlatBuf= function(nbLoop) {
+
+		var dataset = [];
+
+		for (var i = 0; i < nbLoop; i++) {
+
+			var builder = new flatbuffers.Builder(0);
+			var Tick = com.alex.generated.Tick;
+			var Price = com.alex.generated.Price;
+
+			Tick.startTick(builder);
+			Tick.addRic(builder, i);
+			Tick.addPrice(builder, Price.createPrice(builder, new Date().getTime() / (1 +i), new Date().getTime() / (1 +i)));
+			var offset = Tick.endTick(builder);
+			builder.finish(offset);
+
+			var bytes =  builder.asUint8Array()
+
+			dataset.push(bytes);
+
+		}
+
+		var currentRic = "";
+		var currentBid = 0;
+		var currentAsk = 0;
+
+		for (var i = 0; i < nbLoop; i++) {
+			var bytes = dataset[i];
+			var buffer = new flatbuffers.ByteBuffer(bytes);
+			var tick = Tick.getRootAsTick(buffer, null);
+			currentRic = tick.ric();
+			currentBid = tick.price().bid();
+			currentAsk = tick.price().ask();
+		}
+
+		var start = new Date().getTime();
+		for (var i = 0; i < nbLoop; i++) {
+			var bytes = dataset[i];
+			var buffer = new flatbuffers.ByteBuffer(bytes);
+			var tick = Tick.getRootAsTick(buffer, null);
+			currentRic = tick.ric();
+			currentBid = tick.price().bid();
+			currentAsk = tick.price().ask();
+		}
+		
+		var end = new Date().getTime();
+		var avg = (end - start) / nbLoop;
+
+		console.log("FlatBuffers - Avg deserialize time " + avg + " ms");
+	}
+
+
+	var nbLoop = 10000;
+	var nbBench = 3;
+	for (var j = 0; j < nbBench; j++) {
+		benchProtoBuf(nbLoop);
+		benchJson(nbLoop);
+		benchFlatBuf(nbLoop);
+	}
+
+	</script>
+</head>
+	<body>
+	<p>Bench with a message which is a price, no string but one int and a double. CTRL+J to see the results in the logs</p>
+
+</body>
+</html>

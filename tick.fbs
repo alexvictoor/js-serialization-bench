@@ -1,0 +1,17 @@
+// Not used at runtime
+// Use the following command to generate js code:
+// flatc -s tick.fbs --gen-mutable
+
+namespace com.alex.generated;
+
+struct Price {
+  bid:double;
+  ask:double;
+}
+
+table Tick {
+  price:Price;
+  ric:string;
+}
+
+root_type Tick;

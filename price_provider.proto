@@ -1,0 +1,12 @@
+package examples;
+ 
+
+message Price {
+	optional double bid = 1;
+  	optional double ask = 2;
+}
+ 
+message Tick {
+	optional Price price = 1;
+	optional string ric = 2;
+}
