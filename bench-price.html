@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>test protobufjs</title>
+	<title>price serialization bench</title>
 	<script type="text/javascript" src="bytebuffer.js"></script>
 	<script type="text/javascript" src="protobuf.js"></script>
 	<script type="text/javascript" src="flatbuffers.js"></script>
 	<script type="text/javascript" src="tick_generated.js"></script>
+	<script type="text/javascript" src="msgpack.js"></script>
 	<script type="text/javascript">
 
 	var benchProtoBuf= function(nbLoop) {
@@ -92,7 +93,7 @@
 			currentBid = tick.price().bid();
 			currentAsk = tick.price().ask();
 		}
-		
+
 		var end = new Date().getTime();
 		var avg = (end - start) / nbLoop;
 
@@ -101,10 +102,44 @@
 
 
 
+	var benchMsgPack= function(nbLoop) {
+
+		var dataset = [];
+
+		for (var i = 0; i < nbLoop; i++) {
+			var price = {
+				bid : new Date().getTime() / (1 +i),
+				ask : new Date().getTime() / (1 +i)
+			};
+			var tick = {
+				price : price,
+				ric : "code"+i
+			};
+
+			var encodedTick = msgpack.encode(tick);
+			dataset.push(encodedTick);
+		}
+
+		for (var i = 0; i < nbLoop; i++) {
+			var encoded = dataset[i];
+			var tick =  msgpack.decode(encoded);
+		}
+
+		var start = new Date().getTime();
+		for (var i = 0; i < nbLoop; i++) {
+			var encoded = dataset[i];
+			var tick =  msgpack.decode(encoded);
+		}
+		var end = new Date().getTime();
+		var avg = (end - start) / nbLoop;
+
+		console.log("MSGPACK     - Avg deserialize time " + avg + " ms");
+	}
+
 
 
 	var benchJson= function(nbLoop) {
-		
+
 		var dataset = [];
 
 		for (var i = 0; i < nbLoop; i++) {
@@ -113,10 +148,10 @@
 				'"ask" : ' + new Date().getTime() / (1 +i) +
 			'}';
 			var tick = '{' +
-				'"price" : ' + price  + 
-				', "ric" : "' + "code"+i + '" ' + 
+				'"price" : ' + price  +
+				', "ric" : "' + "code"+i + '" ' +
 			'}';
-			
+
 			dataset.push(tick);
 		}
 
@@ -142,6 +177,7 @@
 		benchProtoBuf(nbLoop);
 		benchJson(nbLoop);
 		benchFlatBuf(nbLoop);
+		benchMsgPack(nbLoop);
 	}
 
 	</script>
